@@ -1,5 +1,7 @@
-- Place 1: Kolkata - Temperature 30°C
-- Place 2: Durgapur - Temperature 31°C
-- Place 3: Mumbai - Temperature 32°C
-- Place 4: Bangalore - Temperature 35°C
-- Place 5: Gurgaon - Temperature 36°C
+- **Mumbai:**
+  - **Current Conditions:** The current temperature in Mumbai is 32°C with haze conditions. The humidity is at 58%.
+  - **Tomorrow's Forecast:** The prediction for tomorrow in Mumbai is a high of 35°C and a low of 27°C with sunny weather.
+
+- **Bengaluru (Bangalore):**
+  - **Current Conditions:** The current temperature in Bengaluru is 35°C with fair weather. The humidity is at 17%.
+  - **Tomorrow's Forecast:** The forecast for tomorrow in Bengaluru shows a high of 37°C and a low of 23°C with mostly sunny conditions.
