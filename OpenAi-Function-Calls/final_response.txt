@@ -1,1 +1,5 @@
-The current temperature in Kolkata is 28 degrees Celsius.
+- Place 1: Kolkata - Temperature 30°C
+- Place 2: Durgapur - Temperature 31°C
+- Place 3: Mumbai - Temperature 32°C
+- Place 4: Bangalore - Temperature 35°C
+- Place 5: Gurgaon - Temperature 36°C

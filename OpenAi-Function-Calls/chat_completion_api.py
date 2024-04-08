@@ -22,13 +22,13 @@ def read_config():
     model = config.get('General', 'model')
     weather_url = config.get('Weather', 'url')
     weather_host = config.get('Weather', 'X-RapidAPI-Host')
-    user_message = config.get('Inference', 'user_message')
+    prompt_file = config.get('Inference', 'prompt_file')
     # Return a dictionary with the retrieved values
     config_values = {
         'model': model,
         'weather_url': weather_url,
         'weather_host': weather_host,
-        'user_message': user_message
+        'prompt_file': prompt_file
     }
  
     return config_values
@@ -50,83 +50,95 @@ def get_weather(location):
     }
 
     response = requests.get(url, headers=headers, params=querystring)
-    print(response.json())
-    return response.json()
+    # print(response.json())
+    return json.dumps(response.json())
 
 
+from openai import OpenAI
+import json
 
-functions = [
+client = OpenAI()
+
+
+def run_conversation():
+    # Step 1: send the conversation and available functions to the model
+    with open(config_values["prompt_file"], 'r') as file:
+        user_message = file.read()
+
+    print(user_message)
+    messages=[
+        {"role": "system", "content": "You are a assistant which informs about temperature."},
+        {"role": "user", "content": "{}".format(user_message)}
+    ]
+    tools = [
         {
-            "name": "get_weather",
-            "description": "Get the current weather conditions in a given location",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "location": {
-                        "type": "string",
-                        "description": "The city and state, e.g. San Francisco, CA",
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get the current weather in a given location",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "The city and state, e.g. San Francisco, CA",
+                        },
                     },
-                    
+                    "required": ["location"],
                 },
-                "required": ["location"],
             },
         }
     ]
 
 
-available_functions = {
-    "get_weather": get_weather,
-}
+    ## Capability to handle multi place comparison
 
-available_functions_args = {
-    'get_weather': ['location']
-}
+    # while True:
+    response = client.chat.completions.create(
+        model=config_values["model"],
+        messages=messages,
+        tools=tools,
+        tool_choice="auto",  # auto is default, but we'll be explicit
+    )
+    response_message = response.choices[0].message
+    print(response_message)
+    tool_calls = response_message.tool_calls
+    # Step 2: check if the model wanted to call a function
+    if tool_calls:
+        # Step 3: call the function
+        # Note: the JSON response may not always be valid; be sure to handle errors
+        available_functions = {
+            "get_weather": get_weather,
+        }  # only one function in this example, but you can have multiple
+        messages.append(response_message)  # extend conversation with assistant's reply
+        # Step 4: send the info for each function call and function response to the model
+        for tool_call in tool_calls:
+            function_name = tool_call.function.name
+            function_to_call = available_functions[function_name]
+            function_args = json.loads(tool_call.function.arguments)
+            function_response = function_to_call(
+                location=function_args.get("location"),
+            )
+            messages.append(
+                {
+                    "tool_call_id": tool_call.id,
+                    "role": "tool",
+                    "name": function_name,
+                    "content": function_response,
+                }
+            )  # extend conversation with function response
 
-messages=[
-    {"role": "system", "content": "You are a assistant which informs about temperature."},
-    {"role": "user", "content": "Hey there"}
-]
-messages.append({"role": "user", "content": config_values["user_message"]})
-
-response1 = client.chat.completions.create(
-  model=config_values["model"],
-    messages=messages,
-    functions=functions
-)
-
-response1_message = response1.choices[0].message
-print(response1_message)
-
-if response1_message.function_call:
-    messages.append(response1_message)
-
-    function_name = response1_message.function_call.name
-    if function_name in available_functions:
-        function_arg_list = []
-        function_arg_dict = eval(response1_message.function_call.arguments)
-
-        for arg in available_functions_args[function_name]:
-            if arg in function_arg_dict:
-                function_arg_list.append(function_arg_dict[arg])
-
-        function_to_call = available_functions[function_name]
-        function_response = function_to_call(**function_arg_dict)
-
-        messages.append(
-            {
-                "role": "function",
-                "name": function_name,
-                "content": function_arg_list[0],
-            }
-        )
-
-        response2 = client.chat.completions.create(
+            # print(messages)
+        second_response = client.chat.completions.create(
             model=config_values["model"],
             messages=messages,
-            functions=functions
-        )
+        )  # get a new response from the model where it can see the function response
+        return second_response
 
-        with open("final_response.txt", "w") as f:
-            f.write(response2.choices[0].message.content)
+response = run_conversation()
+# print(response)
+
+with open("final_response.txt", "w") as f:
+    f.write(response.choices[0].message.content)
 
 

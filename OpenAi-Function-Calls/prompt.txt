@@ -1,0 +1,6 @@
+Arrange the current temperatures of the following locations in increasing order:
+Kolkata, Bangalore, Mumbai, Gurgaon, Durgapur.
+Show me the answer as 
+    - Place 1: Temperature 1
+    - Place 2: Temperature 2
+and so on. Do not print anything more than this.
