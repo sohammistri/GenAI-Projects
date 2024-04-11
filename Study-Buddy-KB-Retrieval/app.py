@@ -61,6 +61,7 @@ class StudyBuddyAssistant:
         
         self.run_id = None
         self.summary = None
+        self.file_id_to_file_name = {}
     
     def create_assistant(self, name, instructions, model) -> None:
         if not self.assistant_id:
@@ -79,7 +80,10 @@ class StudyBuddyAssistant:
 
     def upload_file(self, file_path):
             file_obj = client.files.create(file=open(file_path, "rb"), purpose="assistants") 
-            self.client.beta.assistants.files.create(assistant_id=self.assistant_id, file_id=file_obj.id)   
+            self.client.beta.assistants.files.create(assistant_id=self.assistant_id, file_id=file_obj.id) 
+            self.file_id_to_file_name[file_obj.id] = os.path.basename(file_path)
+            print("File name: ", os.path.basename(file_path))
+            print("File id: ", file_obj.id)
     
     def add_message_to_thread(self, role, content) -> None:
         if self.thread_id:
@@ -97,18 +101,46 @@ class StudyBuddyAssistant:
             self.run_id = run.id
             print("Run id: ", self.run_id)
 
-    def process_message(self):
+    def process_message_with_citations(self):
         if self.thread_id:
             messages = self.client.beta.threads.messages.list(thread_id=self.thread_id)
-            summary = []
+            last_message = messages.data[0].content[0].text
+            # print(last_message)
+            
+            annotations = (
+                last_message.annotations if hasattr(last_message, "annotations") else []
+            )
+            citations = []
 
-            last_message = messages.data[0]
-            role = last_message.role
-            response = last_message.content[0].text.value
-            summary.append(response)
+            print(annotations)
 
-            self.summary = "\n".join(summary)
-            # print(f"SUMMARY-----> {role.capitalize()}: ==> {response}")
+            # Iterate over the annotations and add footnotes
+            annotation_dict = {}
+            for index, annotation in enumerate(annotations):
+                # Replace the text with a footnote
+                last_message.value = last_message.value.replace(
+                    annotation.text, f" [{index + 1}]"
+                )
+                if annotation.text not in annotation_dict:
+                    annotation_dict[annotation.text] = index + 1
+
+                # Gather citations based on annotation attributes
+                if file_citation := getattr(annotation, "file_citation", None):
+                    # Retrieve the cited file details (dummy response here since we can't call OpenAI)
+                    print(file_citation)
+                    file_id = getattr(file_citation, "file_id", None)
+                    print(file_id)
+                    print(self.file_id_to_file_name)
+                    if (file_id is not None) and (file_id in self.file_id_to_file_name):
+                        cited_file = self.file_id_to_file_name[file_id]
+                        citations.append(
+                            f'[{index + 1}] {file_citation.quote} from {cited_file}'
+                        )
+            # Add footnotes to the end of the message content
+            full_response = last_message.value# + "\n\n" + "\n".join(citations)
+            print(last_message.value + "\n\n" + "\n".join(citations))
+            self.summary = full_response
+            return full_response
 
 
     def wait_for_completion(self):
@@ -117,7 +149,7 @@ class StudyBuddyAssistant:
                 time.sleep(5)
                 run = client.beta.threads.runs.retrieve(thread_id=self.thread_id, run_id=self.run_id)
                 if run.status == "completed":
-                    self.process_message()
+                    self.process_message_with_citations()
                     break
 
     def get_summary(self):
@@ -133,8 +165,8 @@ def main():
                                 instructions=instructions,\
                                     model=config_values["model"])
     
-    # print("Uploading files...")
-    # assistant.upload_file(config_values["file_path"])
+    print("Uploading files...")
+    assistant.upload_file(config_values["file_path"])
     
     print("Creating thread...")
     assistant.create_thread()
