@@ -44,10 +44,9 @@ news_api_key = os.environ.get("NEWS_API_KEY")
 
 client = openai.OpenAI()
 
-def get_news(topic, timeframe=7):
-    start_date = datetime.today() - timedelta(days=timeframe)
-    start_date = start_date.strftime('%Y-%m-%d')
-    url = (f"""{config_values["news_url"]}?q={topic}&from={start_date}&apiKey={news_api_key}&pageSize=5""")
+def get_news(topic):
+    date = datetime.today().strftime('%Y-%m-%d')
+    url = (f"""{config_values["news_url"]}?q={topic}&to={date}&apiKey={news_api_key}&pageSize=5""")
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -224,10 +223,6 @@ def main():
                             "type": "string",
                             "description": "The topic on which the news is to fetched.",
                         },
-                        "timeframe": {
-                            "type": "integer",
-                            "description": "The number of days before today's date from which we fetch news",
-                        },
                     },
                     "required": ["topic"],
                 },
@@ -242,7 +237,7 @@ def main():
     assistant.create_thread()
 
     print("Adding message to thread...")
-    assistant.add_message_to_thread(role="user", content=f"""Give me the relevant headlines on {config_values["news_query"]} from the past 30 days.""")
+    assistant.add_message_to_thread(role="user", content=f"""Give me the relevant headlines on {config_values["news_query"]}.""")
 
     print("Creating run...")
     assistant.run_assistant(instructions=config_values["instructions"])
